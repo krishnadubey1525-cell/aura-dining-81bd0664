@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Mail, Lock, LogIn, Loader2, UserPlus } from 'lucide-react';
+import { Mail, Lock, LogIn, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,8 +12,7 @@ export default function AdminLoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
-  const { signIn, signUp, isAdmin, user, isLoading: authLoading } = useAuth();
+  const { signIn, isAdmin, user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -27,24 +26,9 @@ export default function AdminLoginPage() {
     setIsLoading(true);
 
     try {
-      if (isSignUp) {
-        const { error } = await signUp(email, password);
-        if (error) {
-          if (error.message.includes('already registered')) {
-            toast.error('This email is already registered', { description: 'Please sign in instead' });
-          } else {
-            toast.error('Sign up failed', { description: error.message });
-          }
-        } else {
-          toast.success('Account created!', { 
-            description: 'Please contact an admin to grant you access to the dashboard.' 
-          });
-        }
-      } else {
-        const { error } = await signIn(email, password);
-        if (error) {
-          toast.error('Login failed', { description: error.message });
-        }
+      const { error } = await signIn(email, password);
+      if (error) {
+        toast.error('Login failed', { description: error.message });
       }
     } catch (err) {
       toast.error('An unexpected error occurred');
@@ -72,9 +56,7 @@ export default function AdminLoginPage() {
           <h1 className="text-4xl font-display font-bold text-gradient-gold mb-2">
             Lumière
           </h1>
-          <p className="text-muted-foreground">
-            {isSignUp ? 'Create your admin account' : 'Admin Dashboard Login'}
-          </p>
+          <p className="text-muted-foreground">Admin Dashboard Login</p>
         </div>
 
         <div className="bg-card border border-border rounded-2xl p-8 shadow-lg">
@@ -120,11 +102,6 @@ export default function AdminLoginPage() {
             >
               {isLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
-              ) : isSignUp ? (
-                <>
-                  <UserPlus className="h-5 w-5 mr-2" />
-                  Create Account
-                </>
               ) : (
                 <>
                   <LogIn className="h-5 w-5 mr-2" />
@@ -133,16 +110,6 @@ export default function AdminLoginPage() {
               )}
             </Button>
           </form>
-
-          <div className="mt-6 text-center">
-            <button
-              type="button"
-              onClick={() => setIsSignUp(!isSignUp)}
-              className="text-sm text-secondary hover:underline"
-            >
-              {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
-            </button>
-          </div>
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
