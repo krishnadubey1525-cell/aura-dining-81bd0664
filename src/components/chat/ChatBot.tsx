@@ -158,10 +158,20 @@ export default function ChatBot() {
   };
 
   const formatMessage = (content: string) => {
-    // Simple markdown-like formatting
-    return content
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\n/g, '<br />');
+    // Safe React-based formatting - no dangerouslySetInnerHTML
+    const lines = content.split('\n');
+    return lines.map((line, lineIndex) => {
+      // Split by bold markers and alternate between plain text and strong
+      const parts = line.split(/\*\*(.*?)\*\*/g);
+      return (
+        <span key={lineIndex}>
+          {parts.map((part, partIndex) => 
+            partIndex % 2 === 0 ? part : <strong key={partIndex}>{part}</strong>
+          )}
+          {lineIndex < lines.length - 1 && <br />}
+        </span>
+      );
+    });
   };
 
   return (
@@ -203,10 +213,9 @@ export default function ChatBot() {
                       : "bg-muted text-foreground"
                   }`}
                 >
-                  <p 
-                    className="text-sm leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: formatMessage(message.content) }}
-                  />
+                  <p className="text-sm leading-relaxed">
+                    {formatMessage(message.content)}
+                  </p>
                 </div>
               </div>
             ))}
