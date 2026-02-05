@@ -1,63 +1,83 @@
-# Plan: Fix Admin Dashboard Sign-In Issue
 
-## Problem Identified
 
-The user can authenticate successfully (login works), but cannot access the admin dashboard because:
-- The `user_roles` table is **empty**
-- No admin role has been assigned to any user
-- The app correctly checks for admin role before granting dashboard access
+# Razorpay Payment Gateway Integration for Reservations
 
-## Current State
+## Overview
+Add Razorpay payment processing after reservation submission. Users will complete their reservation details, then proceed to pay a booking fee/deposit before the reservation is confirmed.
 
-- User `admin@restaurant.com` exists with ID: `6c5180b1-f8e1-4794-97e1-05aa9d1d7ac0`
-- Authentication is working (successful logins in auth logs)
-- `user_roles` table exists but has no entries
+---
 
-## Solution
+## User Flow
 
-### Step 1: Add Admin Role via Database Migration
+1. User fills out reservation form (name, phone, date, time, party size, etc.)
+2. User clicks "Confirm & Pay" button
+3. Razorpay checkout modal opens with booking fee amount
+4. User completes payment via Razorpay (card, UPI, netbanking, etc.)
+5. On successful payment → Reservation saved to database with payment details
+6. User sees confirmation screen with payment receipt info
 
-Create a migration that inserts the admin role for the existing user:
+---
 
-```sql
-INSERT INTO user_roles (user_id, role)
-VALUES ('6c5180b1-f8e1-4794-97e1-05aa9d1d7ac0', 'admin')
-ON CONFLICT (user_id, role) DO NOTHING;
+## Implementation Steps
+
+### Step 1: Store Razorpay API Keys
+Request two secrets from you:
+- **RAZORPAY_KEY_ID** - Your Razorpay Key ID (starts with `rzp_test_` or `rzp_live_`)
+- **RAZORPAY_KEY_SECRET** - Your Razorpay Key Secret
+
+You can get these from your [Razorpay Dashboard](https://dashboard.razorpay.com/app/keys).
+
+### Step 2: Create Database Migration
+Add columns to the `reservations` table to track payments:
+- `payment_status` (pending, paid, failed)
+- `razorpay_order_id` 
+- `razorpay_payment_id`
+- `payment_amount`
+
+### Step 3: Create Edge Function for Razorpay
+Create `supabase/functions/razorpay-order/index.ts`:
+- Create Razorpay order using their API
+- Return order ID to frontend for checkout
+- Handle payment verification webhook/callback
+
+### Step 4: Update Reservation Page
+Modify `src/pages/ReservationsPage.tsx`:
+- Add `react-razorpay` npm package
+- Change form flow to create payment before saving reservation
+- Open Razorpay checkout modal after form validation
+- Save reservation with payment details on success
+
+### Step 5: Handle Payment Verification
+- Verify payment signature on backend
+- Update reservation status based on payment outcome
+
+---
+
+## Technical Details
+
+### New Edge Function Structure
+```
+supabase/functions/razorpay-order/index.ts
+├── POST /create-order - Creates Razorpay order
+└── POST /verify-payment - Verifies payment & saves reservation
 ```
 
-### Step 2: Improve Login UX (Optional Enhancement)
+### Frontend Integration
+Using `react-razorpay` hook:
+- Load Razorpay script dynamically
+- Configure checkout options (amount, currency, prefill data)
+- Handle success/failure callbacks
 
-Update the AdminLoginPage to show a clearer message when a user is authenticated but doesn't have admin privileges:
+### Payment Amount
+The booking fee/deposit amount can be:
+- Fixed amount (e.g., ₹500 per reservation)
+- Per-person amount (e.g., ₹100 × party size)
+- Configurable via admin settings
 
-- Show "Access Denied: You don't have admin privileges" message
-- Provide instructions to contact the owner for access
-- Add a logout button so they can try a different account
+---
 
-### Step 3: Add First-User-Is-Admin Logic (Optional)
+## Required from You
+1. **Razorpay Account** - Create one at [razorpay.com](https://razorpay.com) if you don't have it
+2. **API Keys** - From Razorpay Dashboard → Settings → API Keys
+3. **Booking Fee Amount** - How much to charge per reservation
 
-Create a database trigger that automatically grants admin role to the first user who signs up (useful for initial setup). This prevents the chicken-and-egg problem.
-
-## Files to Modify
-
-1. **Database Migration** - Insert admin role for existing user
-2. **src/pages/admin/AdminLoginPage.tsx** - Better UX for non-admin users
-3. **src/hooks/useAuth.tsx** - No changes needed (already working correctly)
-
-## Implementation Order
-
-1. Run database migration to add admin role
-2. Update login page UX (optional but recommended)
-3. Test login flow
-
-## Expected Outcome
-
-After implementation:
-- User `admin@restaurant.com` will have admin role
-- Login will redirect to `/admin/dashboard` successfully
-- Non-admin users will see a clear "access denied" message
-
-## Critical Files for Implementation
-
-- Database migration (new file) - Adds admin role to user_roles table
-- src/pages/admin/AdminLoginPage.tsx - Improve UX for access denied state
-- src/hooks/useAuth.tsx - Reference for understanding auth flow (no changes needed)
